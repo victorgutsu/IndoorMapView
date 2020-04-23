@@ -2,10 +2,10 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-
-    <ListView
-        android:id="@+id/main_select_lv"
+    <com.example.svgindoormap.SVGMapView
+        android:id="@+id/operation_mapview"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"></ListView>
+        android:layout_height="match_parent"></com.example.svgindoormap.SVGMapView>
+
 
 </RelativeLayout>

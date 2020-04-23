@@ -1,41 +1,59 @@
 package com.example.myapplication;
 
+import android.content.Intent;
 import android.os.Bundle;
-import android.widget.TextView;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.indoormap.MapView;
-import com.example.indoormap.OnRealLocationMoveListener;
-import com.example.indoormap.Position;
+import com.example.myapplication.samplepng.IndoorPngSampleActivity;
+import com.example.myapplication.samplesvg.BasicActivity;
+import com.example.myapplication.samplesvg.CustomOverlayActivity;
+import com.example.myapplication.samplesvg.LocationOverlayActivity;
+import com.example.myapplication.samplesvg.OperationActivity;
+import com.example.myapplication.samplesvg.SparkActivity;
 
-import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
 
-    private MapView mMapView;
-    private TextView mInfoTextView;
+    private ListView mSelectListView;
+    private ArrayAdapter<String> mAdapter;
+    private Class[] mClasses = {IndoorPngSampleActivity.class,
+            BasicActivity.class,
+            OperationActivity.class,
+            LocationOverlayActivity.class,
+            SparkActivity.class,
+            CustomOverlayActivity.class};
+    private String[] mClassesToString = {"IndoorPngSampleActivity",
+            "BasicActivitySVG",
+            "OperationActivitySVG",
+            "LocationOverlayActivitySVG",
+            "SparkActivitySVG",
+            "CustomOverlayActivitySVG"};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mMapView = (MapView) findViewById(R.id.mapview);
-        mInfoTextView = (TextView) findViewById(R.id.tv_current_location);
+        initialize();
+    }
 
-        try {
-            mMapView.initNewMap(getAssets().open("basilica.png"), 1, 0,null);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
 
-        mMapView.updateMyLocation(new Position(652, 684));
-        mMapView.setOnRealLocationMoveListener(new OnRealLocationMoveListener() {
+    private void initialize() {
+        mSelectListView = findViewById(R.id.main_select_lv);
+        mAdapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, mClassesToString);
+        mSelectListView.setAdapter(mAdapter);
+        mSelectListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
-            public void onMove(Position position) {
-                mInfoTextView.setText(position.toString());
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                startActivity(new Intent(MainActivity.this, mClasses[position]));
             }
         });
     }
+
+
 }

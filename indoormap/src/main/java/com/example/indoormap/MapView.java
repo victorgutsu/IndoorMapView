@@ -29,7 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class MapView extends SurfaceView {
+public class MapView extends View {
     // attributes
     private boolean mDebug;
 
@@ -391,7 +391,7 @@ public class MapView extends SurfaceView {
                         double curAngle = MathUtil.angle(new PointF(event.getX(),
                                 event.getY()), curMid);
                         float delAngle = (float) ((curAngle - preAngle) / Math.PI * 180);
-                        mMapMatrix.postRotate(delAngle, preMid.x, preMid.y);
+//                        mMapMatrix.postRotate(delAngle, preMid.x, preMid.y);
                         calScreenRect();
                         onRotate(delAngle, preMid.x, preMid.y, mMapMatrix, mScale);
                     }
@@ -632,7 +632,7 @@ public class MapView extends SurfaceView {
             Matrix initMatrix = new Matrix();
             initMatrix.postScale((float) scale / mInitScale, (float) scale
                     / mInitScale);
-            initMatrix.postRotate((float) rotation - mInitRotation);
+//            initMatrix.postRotate((float) rotation - mInitRotation);
             mMapMatrix = initMatrix;
             refreshDetailBitmap();
             invalidate();

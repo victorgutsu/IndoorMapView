@@ -1,0 +1,50 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".MainActivity">
+
+    <item
+        android:id="@+id/action_rotation_gesture"
+        android:title="action_rotation_gesture"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_scroll_gesture"
+        android:title="action_scroll_gesture"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_zoom_gesture"
+        android:title="action_zoom_gesture"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_rotate_touch_center"
+        android:title="action_rotate_touch_center"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_zoom_touch_center"
+        android:title="action_zoom_touch_center"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_zoom_double"
+        android:title="action_zoom_double"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_zoom_half"
+        android:title="action_zoom_half"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_rotate_to"
+        android:title="action_rotate_to"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_get_current_map"
+        android:title="action_get_current_map"
+        app:showAsAction="never" />
+</menu>
