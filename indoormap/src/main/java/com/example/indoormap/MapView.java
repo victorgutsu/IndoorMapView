@@ -13,6 +13,7 @@ import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.AttributeSet;
@@ -21,7 +22,9 @@ import android.util.Log;
 import android.util.Size;
 import android.view.MotionEvent;
 import android.view.SurfaceView;
-import android.view.View;
+import android.view.ViewTreeObserver;
+
+import androidx.annotation.RequiresApi;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,7 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class MapView extends View {
+public class MapView extends SurfaceView {
     // attributes
     private boolean mDebug;
 
@@ -42,21 +45,22 @@ public class MapView extends View {
     private float mMinScale = 0.1f;
     private float mMaxScale = 4f;
 
-    private float mRestrictSize = 200f;
+    private float mRestrictSize = 500f;
 
     // local parameters
-    private float mScale = 1;
+    private float mScale = 1f;
     private long mFloorId;
     private float mInitRotation = 0;
-    private float mInitScale = 1;
+    private float mInitScale = 1.0f;
     private boolean mIsTrackPosition = false;
     private boolean mInitMapView = false;
 
     private Matrix mMapMatrix = new Matrix();
     private Matrix mDetailMapMatrix = new Matrix();
-    private Matrix mShadowMapMatrix = new Matrix();
+    private Matrix mDecodedRegionMapMatrix = new Matrix();
     private BitmapRegionDecoder mMapDecoder;
-    private Bitmap mShadowBitmap;
+
+    private Bitmap mDecodedRegionBitmap;
     private Bitmap mDetailBitmap;
     private Handler mDecodeBitmapHandler;
     private Context mContext;
@@ -231,7 +235,6 @@ public class MapView extends View {
         try {
             mDebug = a.getBoolean(R.styleable.MapView_debug, false);
             mMaxScale = a.getFloat(R.styleable.MapView_max_scale, 4f);
-            mMinScale = a.getFloat(R.styleable.MapView_min_scale, 0.1f);
             mMyLocationColor = a.getColor(R.styleable.MapView_mylocation_color, 0xFFFF0000);
             mCircleEdgeColor = a.getColor(R.styleable.MapView_circle_edge_color, 0xFFFFFFFF);
             mMyLocationRangeColor = a.getColor(R.styleable.MapView_mylocation_range_color, 0x1EFF0000);
@@ -253,11 +256,43 @@ public class MapView extends View {
         HandlerThread decodeBitmapThread = new HandlerThread("decodeBitmap");
         decodeBitmapThread.start();
         mDecodeBitmapHandler = new Handler(decodeBitmapThread.getLooper());
+
+        getViewTreeObserver().addOnGlobalLayoutListener(
+                new ViewTreeObserver.OnGlobalLayoutListener() {
+                    @Override
+                    public void onGlobalLayout() {
+                        getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                        initScaleWithScreenResolution();
+                    }
+                }
+        );
+    }
+
+    private float getInitScale(float width, float height, float imageWidth, float imageHeight) {
+        float widthRatio = width / imageWidth;
+        float heightRatio = height / imageHeight;
+        if (widthRatio * imageHeight <= height) {
+            return widthRatio;
+        } else if (heightRatio * imageWidth <= width) {
+            return heightRatio;
+        }
+        return 0;
+    }
+
+    private void initScaleWithScreenResolution() {
+        mMinScale = getInitScale(getWidth(), getHeight(), mMapDecoder.getWidth(), mMapDecoder.getHeight());
+        float deltaHeight = getHeight() - mMinScale * mMapDecoder.getHeight();
+        float deltaWidth = getWidth() - mMinScale * mMapDecoder.getWidth();
+        Matrix initMatrix = new Matrix();
+        initMatrix.postScale(mMinScale, mMinScale, 0, 0);
+        initMatrix.postTranslate(deltaWidth/2, deltaHeight/2);
+        initMatrix.postRotate(0);
+        mMapMatrix = initMatrix;
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (mMapLock.isWriteLocked() || mShadowBitmap == null) {
+        if (mMapLock.isWriteLocked() || mDecodedRegionBitmap == null) {
             return super.onTouchEvent(event);
         }
         switch (event.getActionMasked()) {
@@ -419,10 +454,10 @@ public class MapView extends View {
         canvas.drawColor(Color.GRAY);
         mMapLock.readLock().lock();
         Matrix curMapMatrix = new Matrix(mMapMatrix);
-        Matrix shadowMatrix = new Matrix(mShadowMapMatrix);
-        shadowMatrix.postConcat(curMapMatrix);
-        if (mShadowBitmap != null) {
-            canvas.drawBitmap(mShadowBitmap, shadowMatrix, null);
+        Matrix decodedMatrix = new Matrix(mDecodedRegionMapMatrix);
+        decodedMatrix.postConcat(curMapMatrix);
+        if (mDecodedRegionBitmap != null) {
+            canvas.drawBitmap(mDecodedRegionBitmap, decodedMatrix, null);
             if (mDetailBitmap != null) {
                 Matrix detailMatrix = new Matrix(mDetailMapMatrix);
                 detailMatrix.postConcat(curMapMatrix);
@@ -613,10 +648,8 @@ public class MapView extends View {
         return mScale;
     }
 
-    public void initNewMap(InputStream inputStream, double scale,
-                           double rotation, Position currentPosition) {
+    public void initNewMap(InputStream inputStream) {
         try {
-            mMyLocationSymbol.setLocation(currentPosition);
             mMapDecoder = BitmapRegionDecoder.newInstance(inputStream, false);
             Rect rect = new Rect(0, 0, mMapDecoder.getWidth(),
                     mMapDecoder.getHeight());
@@ -624,34 +657,19 @@ public class MapView extends View {
             options.inJustDecodeBounds = true;
             options.inSampleSize = Math.round(Math.max(mMapDecoder.getWidth(),
                     mMapDecoder.getHeight()) / 1024f);
-            Bitmap bitmap = mMapDecoder.decodeRegion(rect, options);
-            mShadowBitmap = bitmap;
-            mShadowMapMatrix = new Matrix();
-            mShadowMapMatrix.setScale(rect.width() / mShadowBitmap.getWidth(),
-                    rect.height() / mShadowBitmap.getHeight(), 0, 0);
-            Matrix initMatrix = new Matrix();
-            initMatrix.postScale((float) scale / mInitScale, (float) scale
-                    / mInitScale);
-//            initMatrix.postRotate((float) rotation - mInitRotation);
-            mMapMatrix = initMatrix;
+            mDecodedRegionBitmap = mMapDecoder.decodeRegion(rect, options);
+            mDecodedRegionMapMatrix = new Matrix();
+            mDecodedRegionMapMatrix.setScale(rect.width() / mDecodedRegionBitmap.getWidth(),
+                    rect.height() / mDecodedRegionBitmap.getHeight(), 0, 0);
+
             refreshDetailBitmap();
+
             invalidate();
-            mInitScale = (float) scale;
-            mInitRotation = (float) rotation;
             mInitMapView = true;
 
             Bitmap symbolBitmap = BitmapFactory.decodeResource(mContext.getResources(), R.mipmap.marker);
-
             mRealLocationSymbol = new RealLocationSymbol(symbolBitmap,
                     symbolBitmap.getWidth() / 2, symbolBitmap.getHeight() / 2);
-            if (currentPosition == null) {
-                Position centerInMap = new Position();
-                centerInMap.setX(rect.width() / 2);
-                centerInMap.setY(rect.height() / 2);
-                mRealLocationSymbol.setLocation(centerInMap);
-            } else {
-                mRealLocationSymbol.setLocation(currentPosition);
-            }
             if (mOnRealLocationMoveListener != null) {
                 mOnRealLocationMoveListener.onMove(mRealLocationSymbol.getLocation());
             }
@@ -721,6 +739,7 @@ public class MapView extends View {
         }
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     private Size getScreenSize(Context context) {
         DisplayMetrics dm = context.getResources().getDisplayMetrics();
         return new Size(dm.widthPixels, dm.heightPixels);

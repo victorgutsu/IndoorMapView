@@ -60,7 +60,6 @@ public class BasicActivity extends AppCompatActivity {
                 });
             }
         });
-        mapView.setBrandBitmap(ImageHelper.drawableToBitmap(new SVGBuilder().readFromString(SVGPicture.ICON_TOILET).build().getDrawable(), 1.0f));
         mapView.loadMap(AssetsHelper.getContent(this, "basilica.svg"));
     }
 
